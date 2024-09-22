@@ -1,12 +1,13 @@
-const gradeService = '../services/grade.service.js';
+const { getGradeByAdmission } = require('../services/grade.service');
 const httpStatus = require('http-status');
-const { catchAsync } = require('../utils/catchAsync');
+const catchAsync = require('../utils/catchAsync');
+const logger = require('../utils/logger');
 
-const getGradeByAdmission = catchAsync(async (req, res) => {
-  const reqBody = req.body;
-  const admissionNumber = req.query;
-  const grades = gradeService(admissionNumber, reqBody);
+const getGrade = catchAsync(async (req, res) => {
+  const admissionNumber = req.params.admissionNo;
+  logger.info(admissionNumber);
+  const grades = await getGradeByAdmission(admissionNumber);
   res.status(httpStatus.OK).json({ success: true, grades });
 });
 
-module.exports = getGradeByAdmission;
+module.exports = getGrade;

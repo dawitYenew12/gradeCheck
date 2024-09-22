@@ -1,7 +1,8 @@
 const http = require('http');
 const express = require('express');
 const loader = require('./loader');
-const logger = require('config/logger');
+const logger = require('./utils/logger');
+const config = require('./config/config');
 
 function exitHandler(server) {
   if (server) {
@@ -20,13 +21,13 @@ function unExpectedErrorHandler(server) {
     exitHandler(server);
   };
 }
+
 const startServer = async () => {
   const app = express();
   await loader(app);
-
   const httpServer = http.createServer(app);
-  httpServer.listen(process.PORT, () => {
-    logger.info(`Server is running on port ${process.PORT}`);
+  httpServer.listen(config.port, () => {
+    logger.info(`Server is running on port ${config.port}`);
   });
 
   process.on('uncaughtException', unExpectedErrorHandler);

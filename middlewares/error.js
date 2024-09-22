@@ -19,7 +19,7 @@ const errorConverter = (err, req, res, next) => {
 
 const errorHandler = (err, req, res, next) => {
   let { statusCode, message } = err;
-  if (process.env === 'production' && !err.isOperational) {
+  if (config.env === 'production' && !err.isOperational) {
     (statusCode = httpStatus.INTERNAL_SERVER_ERROR),
       (message = httpStatus[statusCode]);
   }
