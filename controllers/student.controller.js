@@ -5,7 +5,6 @@ const logger = require('../utils/logger');
 
 const getGrade = catchAsync(async (req, res) => {
   const admissionNumber = req.params.admissionNo;
-  logger.info(admissionNumber);
   const grades = await getGradeByAdmission(admissionNumber);
   res.status(httpStatus.OK).json({ success: true, grades });
 });

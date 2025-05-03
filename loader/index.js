@@ -4,7 +4,7 @@ const mongooseLoader = require('./mongoose');
 const redisClient = require('../config/redis');
 const createWorker = require('../background-tasks/workers');
 
-module.exports = async (app) => {
+module.exports = async (app, ioServer) => {
   await mongooseLoader();
   logger.info('Mongoose fully connected!');
 
@@ -16,10 +16,13 @@ module.exports = async (app) => {
 
   const workers = [
     { name: 'ExcelProcessor', fileName: 'excel-processor.js' },
-    { name: 'HashProcessor', fileName: 'hash-processor.js' },
+    { name: 'CacheProcessor', fileName: 'cache-processor.js' },
   ];
-
   for (const worker of workers) {
-    await createWorker(worker.name, worker.fileName);
+    if (worker.name === 'ExcelProcessor') {
+      await createWorker(worker.name, worker.fileName, ioServer);
+    } else {
+      await createWorker(worker.name, worker.fileName);
+    }
   }
 };

@@ -1,11 +1,11 @@
 const { Queue } = require('bullmq');
 const config = require('../../config/config');
 
-const hashProcessorQueue = new Queue('HashProcessor', {
+const cacheProcessorQueue = new Queue('CacheProcessor', {
   connection: {
     host: config.redis.host,
     port: config.redis.port,
   },
 });
 
-module.exports = hashProcessorQueue;
+module.exports = cacheProcessorQueue;

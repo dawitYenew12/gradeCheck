@@ -1,4 +1,5 @@
 const http = require('http');
+const { Server } = require('socket.io');
 const express = require('express');
 const loader = require('./loader');
 const logger = require('./utils/logger');
@@ -24,9 +25,23 @@ function unExpectedErrorHandler(server) {
 
 const startServer = async () => {
   const app = express();
-  await loader(app);
   const httpServer = http.createServer(app);
-  httpServer.listen(config.port, () => {
+  const ioServer = new Server(httpServer, {
+    cors: {
+      origin: '*',
+    },
+  });
+
+  ioServer.on('connection', (socket) => {
+    logger.info(`New client connected: ${socket.id}`);
+    socket.on('disconnect', () => {
+      logger.info(`Client disconnected: ${socket.id}`);
+    });
+  });
+
+  await loader(app, ioServer);
+
+  const server = httpServer.listen(config.port, () => {
     logger.info(`Server is running on port ${config.port}`);
   });
 

@@ -8,6 +8,8 @@ module.exports = {
   env: envVars.NODE_ENV,
   port: envVars.PORT,
   dbUri: envVars.DB_URI,
+  batchSize: envVars.BATCH_SIZE,
+  dbReconnectDelay: envVars.DB_RECONNECT_DELAY,
   redis: {
     host: envVars.REDIS_HOST,
     port: envVars.REDIS_PORT,

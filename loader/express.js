@@ -11,6 +11,14 @@ const logger = require('../utils/logger');
 module.exports = async (app) => {
   app.use(express.json());
 
+  if (config.env === 'production') {
+    app.use(cors({ origin: url }));
+    app.options('*', cors({ origin: url }));
+  } else {
+    app.use(cors());
+    app.options('*', cors());
+  }
+
   app.use(gradeRouter);
   app.use(adminRouter);
 
