@@ -4,20 +4,22 @@ import axios from 'axios';
 
 const fetchGradesByAdmissionNumber = async (admissionNumber) => {
   if (!admissionNumber) return null;
-  console.log('Fetching data from API for admission number:', admissionNumber);
-  const response = await axios.get(`/stud/grade/${admissionNumber}`);
-  console.log('API Response:', JSON.stringify(response.data));
-  return response.data;
+  try {
+    const response = await axios.get(`/stud/grade/${admissionNumber}`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
 };
 
 function GradeSearch() {
   const [admissionNumber, setAdmissionNumber] = useState('');
   const [searchClicked, setSearchClicked] = useState(false);
-  const [searchCount, setSearchCount] = useState(0);
-  const [currentAdmissionNumber, setCurrentAdmissionNumber] = useState('');
+  const [cachedResult, setCachedResult] = useState(null);
   const queryClient = useQueryClient();
   
-  const queryKey = ['grades', currentAdmissionNumber];
+  // QueryKey explicitly uses 'grades' and the admissionNumber
+  const queryKey = ['grades', admissionNumber];
   
   const {
     data: gradeData,
@@ -29,8 +31,8 @@ function GradeSearch() {
     dataUpdatedAt,
   } = useQuery({
     queryKey,
-    queryFn: () => fetchGradesByAdmissionNumber(currentAdmissionNumber),
-    enabled: searchClicked && !!currentAdmissionNumber,
+    queryFn: () => fetchGradesByAdmissionNumber(admissionNumber),
+    enabled: searchClicked && !!admissionNumber && !cachedResult,
     staleTime: 5 * 60 * 60 * 1000, // 5 hours
     cacheTime: 6 * 60 * 60 * 1000, // 6 hours
     refetchOnWindowFocus: false,
@@ -38,40 +40,84 @@ function GradeSearch() {
     retry: 1,
   });
 
-  // Log cache status whenever data changes
-  useEffect(() => {
-    if (isSuccess) {
-      console.log('Data retrieved successfully', { 
-        fromCache: !isFetching,
-        updatedAt: new Date(dataUpdatedAt).toLocaleTimeString(),
-        searchCount,
-        queryKey
-      });
-    }
-  }, [isSuccess, isFetching, dataUpdatedAt, searchCount, queryKey]);
+  // Use the data that's active - either from cache or from query
+  const displayData = cachedResult || gradeData;
+
   
-  // Check if data is already in cache before starting a search
+  // Helper function to get student info
+  const getStudentInfo = () => {
+    if (!displayData) return { name: 'N/A', admissionNumber: '' };
+    
+    if (displayData.success && displayData.grades) {
+      return {
+        name: displayData.grades.studName || 'N/A',
+        admissionNumber: displayData.grades.admissionNumber || admissionNumber
+      };
+    } else if (displayData.data && displayData.data.studName) {
+      return {
+        name: displayData.data.studName || 'N/A',
+        admissionNumber: displayData.data.admissionNumber || admissionNumber
+      };
+    } else if (displayData.studName) {
+      return {
+        name: displayData.studName || 'N/A',
+        admissionNumber: displayData.admissionNumber || admissionNumber
+      };
+    }
+    
+    return { name: 'N/A', admissionNumber: admissionNumber };
+  };
+  
+  const getGradesArray = () => {
+    if (!displayData) return [];
+    
+    if (displayData.success && displayData.grades && Array.isArray(displayData.grades.grades)) {
+      return displayData.grades.grades;
+    } else if (displayData.data && Array.isArray(displayData.data.grades)) {
+      return displayData.data.grades;
+    } else if (Array.isArray(displayData.grades)) {
+      return displayData.grades;
+    }
+    
+    return [];
+  };
+  
   const handleSearch = (e) => {
     e.preventDefault();
     
-    const cachedData = queryClient.getQueryData(['grades', admissionNumber]);
-    console.log('Cache check for', admissionNumber, 'Result:', cachedData ? 'Found in cache' : 'Not in cache');
+    if (!admissionNumber || admissionNumber.length !== 6) return;
     
-    setCurrentAdmissionNumber(admissionNumber);
-    setSearchClicked(true);
-    setSearchCount(prev => prev + 1);
+    // Reset cached result on new search
+    setCachedResult(null);
+    
+    // Check cache first
+    const cachedData = queryClient.getQueryData(['grades', admissionNumber]);
+   
+    if (cachedData) {
+      setCachedResult(cachedData);
+      setSearchClicked(true);
+    } else {
+      setSearchClicked(true);
+    }
   };
 
   const formatAdmissionNumber = (e) => {
-    // Force uppercase and limit to 6 characters
     const value = e.target.value.toUpperCase().slice(0, 6);
     setAdmissionNumber(value);
   };
 
   const isValidAdmission = admissionNumber.length === 6;
 
-  // Extract student data from the API response
-  const studentData = gradeData?.data;
+  // Reset the view for a new search
+  const handleClearSearch = () => {
+    setAdmissionNumber('');
+    setSearchClicked(false);
+    setCachedResult(null);
+  };
+  
+  // Get student info and grades for rendering
+  const studentInfo = getStudentInfo();
+  const gradesArray = getGradesArray();
 
   return (
     <div className="max-w-2xl mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
@@ -91,13 +137,13 @@ function GradeSearch() {
               value={admissionNumber}
               onChange={formatAdmissionNumber}
               placeholder="Enter your 6-digit admission number (e.g., AB1234)"
-              className="flex-1 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:border-blue-500"
               required
             />
             <button
               type="submit"
               disabled={!isValidAdmission}
-              className={`px-4 py-3 rounded-r-lg ${
+              className={`px-4 py-3 rounded-r-lg cursor-pointer ${
                 isValidAdmission
                   ? 'bg-blue-600 hover:bg-blue-700 text-white'
                   : 'bg-gray-300 cursor-not-allowed text-gray-500'
@@ -117,29 +163,37 @@ function GradeSearch() {
       {/* Results Section */}
       {searchClicked && (
         <div className="border-t pt-4">
-          {isLoading && (
+          {isLoading && !cachedResult && (
             <div className="flex justify-center items-center p-8">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
             </div>
           )}
 
-          {isError && (
+          {isError && !cachedResult && (
             <div className="bg-red-50 p-4 rounded-md border border-red-200">
               <p className="text-red-600 font-medium">
                 {error?.response?.status === 404
                   ? "No grades found for this admission number. Please check and try again."
                   : "An error occurred while fetching your grades. Please try again."}
               </p>
+              <button 
+                onClick={handleClearSearch}
+                className="mt-2 px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200"
+              >
+                Try Another Search
+              </button>
             </div>
           )}
 
-          {/* Show data if available based on the actual API response structure */}
-          {studentData && (
+          {/* Show data if available */}
+          {displayData && (
             <div className="space-y-4">
               <div className="bg-blue-50 p-4 rounded-md border border-blue-100">
                 <h3 className="font-medium text-blue-800">Student Information</h3>
-                <p className="text-blue-700">Name: {studentData.studName}</p>
-                <p className="text-blue-700">Admission Number: {studentData.admissionNumber}</p>
+                <p className="text-blue-700">Name: {studentInfo.name}</p>
+                <p className="text-blue-700">Admission Number: {studentInfo.admissionNumber}</p>
+                
+
               </div>
               
               <h3 className="font-bold text-lg text-gray-800 mt-4">Your Grades</h3>
@@ -156,19 +210,36 @@ function GradeSearch() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {studentData.grades && studentData.grades.map((grade, index) => (
-                      <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {grade.subject}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {grade.grade}
+                    {gradesArray.length > 0 ? (
+                      gradesArray.map((grade, index) => (
+                        <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {grade.subject}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {grade.grade}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="2" className="px-6 py-4 text-center text-sm text-gray-500">
+                          No grades available for this student.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
+              
+              {/* <div className="flex justify-end mt-4">
+                <button 
+                  onClick={handleClearSearch}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                >
+                  New Search
+                </button>
+              </div> */}
             </div>
           )}
         </div>

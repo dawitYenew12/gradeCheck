@@ -7,7 +7,7 @@ module.exports = async (job) => {
   try {
     const grades = JSON.stringify(job.data.grades);
     await redisClient.connect();
-    await redisClient.set('recent-grades', grades);
+    await redisClient.set(`recent-grade-${job.data.admissionNumber}`, grades);
   } catch (error) {
     throw new ApiError(httpStatus.SERVICE_UNAVAILABLE, 'Service unavailable');
   }

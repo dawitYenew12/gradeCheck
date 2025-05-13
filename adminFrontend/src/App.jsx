@@ -110,7 +110,7 @@ function App() {
             <button
               type="submit"
               disabled={uploading || !file}
-              className={`w-full py-3 px-4 rounded-md text-white font-medium ${
+              className={`w-full cursor-pointer py-3 px-4 rounded-md text-white font-medium${
                 uploading || !file
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700'
